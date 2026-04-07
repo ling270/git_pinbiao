@@ -147,10 +147,10 @@ void MainWindow::handleProgress(double p)
     m_progressBar->setValue(v);
 }
 
-void MainWindow::handlePreviewReady(const QVector<double>& t, const QVector<double>& y13, const QVector<double>& y24)
+void MainWindow::handlePreviewReady(const QVector<double>& t, const QVector<double>& phaseDiff, const QVector<double>& freqDiff)
 {
-    if (m_plotWidget) m_plotWidget->plotPreview(t, y13, y24);
-    handleLogMessage("Preview plotted.");
+    if (m_plotWidget) m_plotWidget->plotPreview(t, phaseDiff, freqDiff);
+    handleLogMessage("Phase/frequency difference preview plotted.");
 }
 
 void MainWindow::handleDecimationStageReady(const QString& phase13, const QString& phase24, int stageIndex, double fs)

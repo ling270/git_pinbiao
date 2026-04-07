@@ -26,22 +26,24 @@ void PlotWidget::setTitle(const QString& title)
     m_plot->plotLayout()->addElement(0, 0, t);
 }
 
-void PlotWidget::plotPreview(const QVector<double>& t, const QVector<double>& y13, const QVector<double>& y24)
+void PlotWidget::plotPreview(const QVector<double>& t, const QVector<double>& phaseDiff, const QVector<double>& freqDiff)
 {
     m_plot->clearGraphs();
+    m_plot->yAxis2->setVisible(true);
 
     m_plot->addGraph();
-    m_plot->graph(0)->setData(t, y13);
-    m_plot->graph(0)->setName("phase13");
+    m_plot->graph(0)->setData(t, phaseDiff);
+    m_plot->graph(0)->setName("Phase Difference");
 
-    m_plot->addGraph();
-    m_plot->graph(1)->setData(t, y24);
+    m_plot->addGraph(m_plot->xAxis, m_plot->yAxis2);
+    m_plot->graph(1)->setData(t, freqDiff);
     m_plot->graph(1)->setPen(QPen(Qt::red));
-    m_plot->graph(1)->setName("phase24");
+    m_plot->graph(1)->setName("Frequency Difference");
 
     m_plot->xAxis->setScaleType(QCPAxis::stLinear);
     m_plot->xAxis->setLabel("Time (s)");
-    m_plot->yAxis->setLabel("Phase (rad)");
+    m_plot->yAxis->setLabel("Phase Difference (rad)");
+    m_plot->yAxis2->setLabel("Frequency Difference (Hz)");
     m_plot->rescaleAxes();
     m_plot->replot();
 }
@@ -93,6 +95,7 @@ void PlotWidget::plotSpectrumFile(const QString& file)
     }
 
     m_plot->clearGraphs();
+    m_plot->yAxis2->setVisible(false);
 
     m_plot->addGraph();
     m_plot->graph(0)->setData(freq, L);
