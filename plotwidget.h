@@ -11,7 +11,7 @@ public:
     explicit PlotWidget(QWidget* parent = nullptr);
 
     void setTitle(const QString& title);
-    void plotPreview(const QVector<double>& t, const QVector<double>& y13, const QVector<double>& y24);
+    void plotPreview(const QVector<double>& t, const QVector<double>& phaseDiff, const QVector<double>& freqDiff);
     void plotSpectrumFile(const QString& file);
 
 private:

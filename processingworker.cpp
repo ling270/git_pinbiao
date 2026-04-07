@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <cmath>
+#include <algorithm>
 #include <QDir>
 #include <QFileInfo>
 
@@ -94,6 +95,10 @@ void ProcessingWorker::process()
     }
 
     bool previewSent = false;
+    bool hasPrev13 = false, hasPrev24 = false;
+    double prevRaw13 = 0.0, prevRaw24 = 0.0;
+    double unwrapOffset13 = 0.0, unwrapOffset24 = 0.0;
+    const double twoPi = 2.0 * M_PI;
 
     while (!m_stop) {
         size_t groupsRead = reader.readGroups(fin, groupsPerBlock, rawBuf);
@@ -141,7 +146,38 @@ void ProcessingWorker::process()
             phase24_block.push_back(p2 - p4);
         }
 
-        // stage0 写出
+        // 先对输入相位差做解卷绕，再进行后续处理
+        for (size_t i = 0; i < phase13_block.size(); ++i) {
+            const double raw13 = phase13_block[i];
+            if (hasPrev13) {
+                double d = raw13 - prevRaw13;
+                if (d > M_PI) {
+                    unwrapOffset13 -= twoPi;
+                } else if (d < -M_PI) {
+                    unwrapOffset13 += twoPi;
+                }
+            } else {
+                hasPrev13 = true;
+            }
+            prevRaw13 = raw13;
+            phase13_block[i] = raw13 + unwrapOffset13;
+
+            const double raw24 = phase24_block[i];
+            if (hasPrev24) {
+                double d = raw24 - prevRaw24;
+                if (d > M_PI) {
+                    unwrapOffset24 -= twoPi;
+                } else if (d < -M_PI) {
+                    unwrapOffset24 += twoPi;
+                }
+            } else {
+                hasPrev24 = true;
+            }
+            prevRaw24 = raw24;
+            phase24_block[i] = raw24 + unwrapOffset24;
+        }
+
+        // stage0 写出（已解卷绕）
         if (!phase13_block.empty()) {
             fwrite(phase13_block.data(), sizeof(double), phase13_block.size(), f13[0]);
             fwrite(phase24_block.data(), sizeof(double), phase24_block.size(), f24[0]);
@@ -188,7 +224,7 @@ void ProcessingWorker::process()
             cur24.swap(out24);
         }
 
-        // preview 只发一次（base 前几千点）
+        // preview 只发一次（base 前几千点）：画相位差与频率差
         if (!previewSent && samplesWritten[0] >= 4096) {
             previewSent = true;
 
@@ -203,13 +239,37 @@ void ProcessingWorker::process()
                 fclose(p24);
 
                 size_t r = std::min(r1, r2);
-                QVector<double> t((int)r), y13((int)r), y24((int)r);
+                QVector<double> t((int)r), phaseDiff((int)r), freqDiff((int)r);
+                bool hasPrev = false;
+                double prevRawDiff = 0.0;
+                double prevUnwrapped = 0.0;
+                double diffOffset = 0.0;
                 for (size_t i = 0; i < r; ++i) {
+                    const double rawDiff = a[i] - b[i];
+                    double dph = rawDiff;
+                    if (hasPrev) {
+                        double d = rawDiff - prevRawDiff;
+                        if (d > M_PI) {
+                            diffOffset -= twoPi;
+                        } else if (d < -M_PI) {
+                            diffOffset += twoPi;
+                        }
+                    } else {
+                        hasPrev = true;
+                    }
+                    dph += diffOffset;
+                    phaseDiff[(int)i] = dph;
+                    prevRawDiff = rawDiff;
+
                     t[(int)i] = double(i) / fs0;
-                    y13[(int)i] = a[i];
-                    y24[(int)i] = b[i];
+                    if (i == 0) {
+                        freqDiff[(int)i] = 0.0;
+                    } else {
+                        freqDiff[(int)i] = (dph - prevUnwrapped) * fs0 / twoPi;
+                    }
+                    prevUnwrapped = dph;
                 }
-                emit previewReady(t, y13, y24);
+                emit previewReady(t, phaseDiff, freqDiff);
             }
         }
 

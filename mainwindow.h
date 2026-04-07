@@ -19,7 +19,7 @@ private slots:
 
     void handleLogMessage(const QString& msg);
     void handleProgress(double p);
-    void handlePreviewReady(const QVector<double>& t, const QVector<double>& y13, const QVector<double>& y24);
+    void handlePreviewReady(const QVector<double>& t, const QVector<double>& phaseDiff, const QVector<double>& freqDiff);
     void handleDecimationStageReady(const QString& phase13, const QString& phase24, int stageIndex, double fs);
     void handleCrossSpecReady(const QString& specFile);
 
