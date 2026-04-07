@@ -83,7 +83,15 @@ void ProcessingWorker::process()
     if (seekFile64(fin, 0, SEEK_END)) {
         totalBytes = tellFile64(fin);
     }
-    seekFile64(fin, 0, SEEK_SET);
+    if (!seekFile64(fin, 0, SEEK_SET)) {
+        for (int s = 0; s < numStages; ++s) {
+            if (f13[s]) fclose(f13[s]);
+            if (f24[s]) fclose(f24[s]);
+        }
+        fclose(fin);
+        emit failed("Cannot seek input file.");
+        return;
+    }
 
     bool previewSent = false;
 
