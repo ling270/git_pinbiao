@@ -1,8 +1,8 @@
 #include "processingworker.h"
 #include "streamreader.h"
 #include "decimator10_poly.h"
+#include "fileio64.h"
 
-#include <cstdio>
 #include <vector>
 #include <cmath>
 #include <QDir>
@@ -78,10 +78,20 @@ void ProcessingWorker::process()
     const double phaseScale = 2.0 * M_PI / 4294967296.0;
 
     // for progress
-    fseek(fin, 0, SEEK_END);
-    long totalBytes = ftell(fin);
-    fseek(fin, 0, SEEK_SET);
-    long processedBytes = 0;
+    qint64 totalBytes = -1;
+    qint64 processedBytes = 0;
+    if (seekFile64(fin, 0, SEEK_END)) {
+        totalBytes = tellFile64(fin);
+    }
+    if (!seekFile64(fin, 0, SEEK_SET)) {
+        for (int s = 0; s < numStages; ++s) {
+            if (f13[s]) fclose(f13[s]);
+            if (f24[s]) fclose(f24[s]);
+        }
+        fclose(fin);
+        emit failed("Cannot seek input file.");
+        return;
+    }
 
     bool previewSent = false;
 
@@ -203,7 +213,7 @@ void ProcessingWorker::process()
             }
         }
 
-        processedBytes += int(usableInts * sizeof(uint32_t));
+        processedBytes += qint64(usableInts * sizeof(uint32_t));
         if (totalBytes > 0) emit progress(double(processedBytes) / double(totalBytes));
     }
 

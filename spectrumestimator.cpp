@@ -1,7 +1,7 @@
 #include "spectrumestimator.h"
+#include "fileio64.h"
 #include "qmath.h"
 #include <fftw3.h>
-#include <cstdio>
 #include <vector>
 #include <complex>
 #define _USE_MATH_DEFINES
@@ -34,18 +34,18 @@ bool SpectrumEstimator::estimateCrossSpectrum(const QString& file1, const QStrin
     FILE* f2 = fopen(file2.toUtf8().constData(), "rb");
     if (!f2) { fclose(f1); return false; }
 
-    fseek(f1, 0, SEEK_END);
-    long bytes1 = ftell(f1);
-    fseek(f1, 0, SEEK_SET);
+    if (!seekFile64(f1, 0, SEEK_END)) { fclose(f1); fclose(f2); return false; }
+    qint64 bytes1 = tellFile64(f1);
+    if (bytes1 < 0 || !seekFile64(f1, 0, SEEK_SET)) { fclose(f1); fclose(f2); return false; }
 
-    fseek(f2, 0, SEEK_END);
-    long bytes2 = ftell(f2);
-    fseek(f2, 0, SEEK_SET);
+    if (!seekFile64(f2, 0, SEEK_END)) { fclose(f1); fclose(f2); return false; }
+    qint64 bytes2 = tellFile64(f2);
+    if (bytes2 < 0 || !seekFile64(f2, 0, SEEK_SET)) { fclose(f1); fclose(f2); return false; }
 
-    long pts1 = bytes1 / sizeof(double);
-    long pts2 = bytes2 / sizeof(double);
-    long frameNum = std::min(pts1, pts2) / m_fftLen;
-    int avg = std::min<long>(frameNum, m_avgTimes);
+    qint64 pts1 = bytes1 / qint64(sizeof(double));
+    qint64 pts2 = bytes2 / qint64(sizeof(double));
+    qint64 frameNum = std::min(pts1, pts2) / m_fftLen;
+    qint64 avg = std::min(frameNum, qint64(m_avgTimes));
     if (avg <= 0) { fclose(f1); fclose(f2); return false; }
 
     auto win = blackmanHarris(m_fftLen);
@@ -63,10 +63,12 @@ bool SpectrumEstimator::estimateCrossSpectrum(const QString& file1, const QStrin
     std::vector<std::complex<double>> specSum(m_fftLen, {0.0, 0.0});
     std::vector<double> buf1(m_fftLen), buf2(m_fftLen);
 
-    for (int k = 0; k < avg; ++k) {
+    qint64 validFrames = 0;
+    for (qint64 k = 0; k < avg; ++k) {
         size_t r1 = fread(buf1.data(), sizeof(double), m_fftLen, f1);
         size_t r2 = fread(buf2.data(), sizeof(double), m_fftLen, f2);
         if (r1 < (size_t)m_fftLen || r2 < (size_t)m_fftLen) break;
+        ++validFrames;
 
         for (int n = 0; n < m_fftLen; ++n) {
             in1[n][0] = buf1[n] * win[n];
@@ -85,8 +87,15 @@ bool SpectrumEstimator::estimateCrossSpectrum(const QString& file1, const QStrin
         }
     }
 
+    if (validFrames <= 0) {
+        fclose(f1); fclose(f2);
+        fftw_destroy_plan(p1); fftw_destroy_plan(p2);
+        fftw_free(in1); fftw_free(in2); fftw_free(out1); fftw_free(out2);
+        return false;
+    }
+
     for (int n = 0; n < m_fftLen; ++n) {
-        specSum[n] /= double(avg);
+        specSum[n] /= double(validFrames);
     }
 
     FILE* fo = fopen(outFile.toUtf8().constData(), "wb");
