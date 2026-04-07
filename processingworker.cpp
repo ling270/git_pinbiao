@@ -1,33 +1,12 @@
 #include "processingworker.h"
 #include "streamreader.h"
 #include "decimator10_poly.h"
+#include "fileio64.h"
 
-#include <cstdio>
 #include <vector>
 #include <cmath>
-#include <cstdint>
 #include <QDir>
 #include <QFileInfo>
-
-namespace {
-static bool seekFile64(FILE* f, qint64 offset, int origin)
-{
-#ifdef _WIN32
-    return _fseeki64(f, static_cast<__int64>(offset), origin) == 0;
-#else
-    return fseeko(f, static_cast<off_t>(offset), origin) == 0;
-#endif
-}
-
-static qint64 tellFile64(FILE* f)
-{
-#ifdef _WIN32
-    return static_cast<qint64>(_ftelli64(f));
-#else
-    return static_cast<qint64>(ftello(f));
-#endif
-}
-}
 
 ProcessingWorker::ProcessingWorker(const QString& inputFile, const QString& outDir, int fftLen, QObject* parent)
     : QObject(parent), m_inputFile(inputFile), m_outDir(outDir), m_fftLen(fftLen)

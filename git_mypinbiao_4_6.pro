@@ -27,6 +27,7 @@ SOURCES += \
 HEADERS += \
     crossspectrumworker.h \
     decimator10_poly.h \
+    fileio64.h \
     mainwindow.h \
     plotwidget.h \
     processingworker.h \

@@ -1,32 +1,11 @@
 #include "spectrumestimator.h"
+#include "fileio64.h"
 #include "qmath.h"
 #include <fftw3.h>
-#include <cstdio>
 #include <vector>
 #include <complex>
-#include <cstdint>
 #define _USE_MATH_DEFINES
 #include <cmath>
-
-namespace {
-static bool seekFile64(FILE* f, qint64 offset, int origin)
-{
-#ifdef _WIN32
-    return _fseeki64(f, static_cast<__int64>(offset), origin) == 0;
-#else
-    return fseeko(f, static_cast<off_t>(offset), origin) == 0;
-#endif
-}
-
-static qint64 tellFile64(FILE* f)
-{
-#ifdef _WIN32
-    return static_cast<qint64>(_ftelli64(f));
-#else
-    return static_cast<qint64>(ftello(f));
-#endif
-}
-}
 
 SpectrumEstimator::SpectrumEstimator(int fftLen, int avgTimes, double fs)
     : m_fftLen(fftLen), m_avgTimes(avgTimes), m_fs(fs) {}
@@ -84,12 +63,12 @@ bool SpectrumEstimator::estimateCrossSpectrum(const QString& file1, const QStrin
     std::vector<std::complex<double>> specSum(m_fftLen, {0.0, 0.0});
     std::vector<double> buf1(m_fftLen), buf2(m_fftLen);
 
-    qint64 processedFrames = 0;
+    qint64 validFrames = 0;
     for (qint64 k = 0; k < avg; ++k) {
         size_t r1 = fread(buf1.data(), sizeof(double), m_fftLen, f1);
         size_t r2 = fread(buf2.data(), sizeof(double), m_fftLen, f2);
         if (r1 < (size_t)m_fftLen || r2 < (size_t)m_fftLen) break;
-        ++processedFrames;
+        ++validFrames;
 
         for (int n = 0; n < m_fftLen; ++n) {
             in1[n][0] = buf1[n] * win[n];
@@ -108,7 +87,7 @@ bool SpectrumEstimator::estimateCrossSpectrum(const QString& file1, const QStrin
         }
     }
 
-    if (processedFrames <= 0) {
+    if (validFrames <= 0) {
         fclose(f1); fclose(f2);
         fftw_destroy_plan(p1); fftw_destroy_plan(p2);
         fftw_free(in1); fftw_free(in2); fftw_free(out1); fftw_free(out2);
@@ -116,7 +95,7 @@ bool SpectrumEstimator::estimateCrossSpectrum(const QString& file1, const QStrin
     }
 
     for (int n = 0; n < m_fftLen; ++n) {
-        specSum[n] /= double(processedFrames);
+        specSum[n] /= double(validFrames);
     }
 
     FILE* fo = fopen(outFile.toUtf8().constData(), "wb");
