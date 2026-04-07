@@ -30,6 +30,8 @@ void PlotWidget::plotPreview(const QVector<double>& t, const QVector<double>& ph
 {
     m_plot->clearGraphs();
     m_plot->yAxis2->setVisible(true);
+    m_plot->yAxis2->setTicks(true);
+    m_plot->yAxis2->setTickLabels(true);
 
     m_plot->addGraph();
     m_plot->graph(0)->setData(t, phaseDiff);
