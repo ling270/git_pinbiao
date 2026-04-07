@@ -241,12 +241,14 @@ void ProcessingWorker::process()
                 size_t r = std::min(r1, r2);
                 QVector<double> t((int)r), phaseDiff((int)r), freqDiff((int)r);
                 bool hasPrev = false;
+                double prevRawDiff = 0.0;
                 double prevUnwrapped = 0.0;
                 double diffOffset = 0.0;
                 for (size_t i = 0; i < r; ++i) {
-                    double dph = a[i] - b[i];
+                    const double rawDiff = a[i] - b[i];
+                    double dph = rawDiff;
                     if (hasPrev) {
-                        double d = dph - prevUnwrapped;
+                        double d = rawDiff - prevRawDiff;
                         if (d > M_PI) {
                             diffOffset -= twoPi;
                         } else if (d < -M_PI) {
@@ -257,6 +259,7 @@ void ProcessingWorker::process()
                     }
                     dph += diffOffset;
                     phaseDiff[(int)i] = dph;
+                    prevRawDiff = rawDiff;
 
                     t[(int)i] = double(i) / fs0;
                     if (i == 0) {
